@@ -33,3 +33,6 @@ CMakeFiles/
 *.cmake
 CMakeCache.txt
 Makefile
+
+# Qt Creator
+*.user
