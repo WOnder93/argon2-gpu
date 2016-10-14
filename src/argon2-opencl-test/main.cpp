@@ -23,17 +23,20 @@ class TestCase
 {
 private:
     Argon2Params params;
+    const void *output;
     const void *input;
     std::size_t inputLength;
 
 public:
     const Argon2Params &getParams() const { return params; }
+    const void *getOutput() const { return output; }
     const void *getInput() const { return input; }
     std::size_t getInputLength() const { return inputLength; }
 
-    TestCase(const Argon2Params &params, const void *input,
-             std::size_t inputLength)
-        : params(params), input(input), inputLength(inputLength)
+    TestCase(const Argon2Params &params, const void *output,
+             const void *input, std::size_t inputLength)
+        : params(params), output(output),
+          input(input), inputLength(inputLength)
     {
     }
 
@@ -89,7 +92,7 @@ std::size_t runTests(const GlobalContext &global, const Device &device,
         pu.endProcessing();
 
         ProcessingUnit::HashReader hash(pu);
-        bool res = std::memcmp(params.getOutput(), hash.getHash(),
+        bool res = std::memcmp(tc->getOutput(), hash.getHash(),
                                params.getOutputLength()) == 0;
         if (!res) {
             ++failures;
@@ -107,35 +110,35 @@ std::size_t runTests(const GlobalContext &global, const Device &device,
 const TestCase CASES_I_10[] = {
     {
         {
-            "\xfd\x4d\xd8\x3d\x76\x2c\x49\xbd"
-            "\xea\xf5\x7c\x47\xbd\xcd\x0c\x2f"
-            "\x1b\xab\xf8\x63\xfd\xeb\x49\x0d"
-            "\xf6\x3e\xde\x99\x75\xfc\xcf\x06", 32,
-            "somesalt", 8, nullptr, 0, nullptr, 0,
+            32, "somesalt", 8, nullptr, 0, nullptr, 0,
             2, UINT32_C(1) << 8, 1
         },
+        "\xfd\x4d\xd8\x3d\x76\x2c\x49\xbd"
+        "\xea\xf5\x7c\x47\xbd\xcd\x0c\x2f"
+        "\x1b\xab\xf8\x63\xfd\xeb\x49\x0d"
+        "\xf6\x3e\xde\x99\x75\xfc\xcf\x06",
         "password", 8
     },
     {
         {
-            "\xb6\xc1\x15\x60\xa6\xa9\xd6\x1e"
-            "\xac\x70\x6b\x79\xa2\xf9\x7d\x68"
-            "\xb4\x46\x3a\xa3\xad\x87\xe0\x0c"
-            "\x07\xe2\xb0\x1e\x90\xc5\x64\xfb", 32,
-            "somesalt", 8, nullptr, 0, nullptr, 0,
+            32, "somesalt", 8, nullptr, 0, nullptr, 0,
             2, UINT32_C(1) << 8, 2
         },
+        "\xb6\xc1\x15\x60\xa6\xa9\xd6\x1e"
+        "\xac\x70\x6b\x79\xa2\xf9\x7d\x68"
+        "\xb4\x46\x3a\xa3\xad\x87\xe0\x0c"
+        "\x07\xe2\xb0\x1e\x90\xc5\x64\xfb",
         "password", 8
     },
     {
         {
-            "\xf6\xc4\xdb\x4a\x54\xe2\xa3\x70"
-            "\x62\x7a\xff\x3d\xb6\x17\x6b\x94"
-            "\xa2\xa2\x09\xa6\x2c\x8e\x36\x15"
-            "\x27\x11\x80\x2f\x7b\x30\xc6\x94", 32,
-            "somesalt", 8, nullptr, 0, nullptr, 0,
+            32, "somesalt", 8, nullptr, 0, nullptr, 0,
             2, UINT32_C(1) << 16, 1
         },
+        "\xf6\xc4\xdb\x4a\x54\xe2\xa3\x70"
+        "\x62\x7a\xff\x3d\xb6\x17\x6b\x94"
+        "\xa2\xa2\x09\xa6\x2c\x8e\x36\x15"
+        "\x27\x11\x80\x2f\x7b\x30\xc6\x94",
         "password", 8
     },
 };
@@ -143,10 +146,7 @@ const TestCase CASES_I_10[] = {
 const TestCase CASES_I_13[] = {
     {
         {
-            "\xc8\x14\xd9\xd1\xdc\x7f\x37\xaa"
-            "\x13\xf0\xd7\x7f\x24\x94\xbd\xa1"
-            "\xc8\xde\x6b\x01\x6d\xd3\x88\xd2"
-            "\x99\x52\xa4\xc4\x67\x2b\x6c\xe8", 32,
+            32,
             "\x02\x02\x02\x02\x02\x02\x02\x02"
             "\x02\x02\x02\x02\x02\x02\x02\x02", 16,
             "\x03\x03\x03\x03\x03\x03\x03\x03", 8,
@@ -154,6 +154,10 @@ const TestCase CASES_I_13[] = {
             "\x04\x04\x04\x04", 12,
             3, 32, 4
         },
+        "\xc8\x14\xd9\xd1\xdc\x7f\x37\xaa"
+        "\x13\xf0\xd7\x7f\x24\x94\xbd\xa1"
+        "\xc8\xde\x6b\x01\x6d\xd3\x88\xd2"
+        "\x99\x52\xa4\xc4\x67\x2b\x6c\xe8",
         "\x01\x01\x01\x01\x01\x01\x01\x01"
         "\x01\x01\x01\x01\x01\x01\x01\x01"
         "\x01\x01\x01\x01\x01\x01\x01\x01"
@@ -161,13 +165,13 @@ const TestCase CASES_I_13[] = {
     },
     {
         {
-            "\xc1\x62\x88\x32\x14\x7d\x97\x20"
-            "\xc5\xbd\x1c\xfd\x61\x36\x70\x78"
-            "\x72\x9f\x6d\xfb\x6f\x8f\xea\x9f"
-            "\xf9\x81\x58\xe0\xd7\x81\x6e\xd0", 32,
-            "somesalt", 8, nullptr, 0, nullptr, 0,
+            32, "somesalt", 8, nullptr, 0, nullptr, 0,
             2, UINT32_C(1) << 16, 1
         },
+        "\xc1\x62\x88\x32\x14\x7d\x97\x20"
+        "\xc5\xbd\x1c\xfd\x61\x36\x70\x78"
+        "\x72\x9f\x6d\xfb\x6f\x8f\xea\x9f"
+        "\xf9\x81\x58\xe0\xd7\x81\x6e\xd0",
         "password", 8
     },
 };

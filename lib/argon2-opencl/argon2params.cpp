@@ -21,12 +21,12 @@ static void store32(void *dst, std::uint32_t v)
 }
 
 Argon2Params::Argon2Params(
-        const void *out, std::size_t outLen,
+        std::size_t outLen,
         const void *salt, std::size_t saltLen,
         const void *secret, std::size_t secretLen,
         const void *ad, std::size_t adLen,
         std::size_t t_cost, std::size_t m_cost, std::size_t lanes)
-    : out(out), salt(salt), secret(secret), ad(ad),
+    : salt(salt), secret(secret), ad(ad),
       outLen(outLen), saltLen(saltLen), secretLen(secretLen), adLen(adLen),
       t_cost(t_cost), m_cost(m_cost), lanes(lanes)
 {

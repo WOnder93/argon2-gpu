@@ -10,7 +10,7 @@ namespace argon2 {
 class Argon2Params
 {
 private:
-    const void *out, *salt, *secret, *ad;
+    const void *salt, *secret, *ad;
     std::uint32_t outLen, saltLen, secretLen, adLen;
     std::uint32_t t_cost, m_cost, lanes;
 
@@ -23,7 +23,6 @@ private:
                      Type type, Version version) const;
 
 public:
-    const void *getOutput() const { return out; }
     std::uint32_t getOutputLength() const { return outLen; }
 
     const void *getSalt() const { return salt; }
@@ -49,7 +48,7 @@ public:
     }
 
     Argon2Params(
-            const void *out, std::size_t outLen,
+            std::size_t outLen,
             const void *salt, std::size_t saltLen,
             const void *secret, std::size_t secretLen,
             const void *ad, std::size_t adLen,
