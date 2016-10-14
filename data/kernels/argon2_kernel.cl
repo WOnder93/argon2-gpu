@@ -67,15 +67,10 @@ typedef ptrdiff_t intptr_t;
 
 #define MASK_32 0xFFFFFFFFUL
 
-// TODO: test both versions:
-#if 1
-#define F(x, y) ((x) + (y) + 2 * ((x) & MASK_32) * ((y) & MASK_32))
-#else
 #define F(x, y) ((x) + (y) + 2 * upsample( \
     mul_hi((uint)(x), (uint)(y)), \
     (uint)(x) * (uint)(y) \
     ))
-#endif
 
 #define rotr64(x, n) rotate(x, (ulong)(64 - (n)))
 
@@ -122,9 +117,9 @@ void shuffle_block(__local struct block *block, size_t thread)
     G(v[index1.s0], v[index1.s1], v[index1.s2], v[index1.s3]);
 }
 
-void fill_block(__global const struct block *ref_block,
-                __local struct block *prev_block,
-                __local struct block *next_block,
+void fill_block(__global const struct block *restrict ref_block,
+                __local struct block *restrict prev_block,
+                __local struct block *restrict next_block,
                 size_t thread)
 {
     for (size_t i = 0; i < QWORDS_PER_THREAD; i++) {
@@ -145,9 +140,9 @@ void fill_block(__global const struct block *ref_block,
 }
 
 #if ARGON2_VERSION != ARGON2_VERSION_10
-void fill_block_xor(__global const struct block *ref_block,
-                    __local struct block *prev_block,
-                    __local struct block *next_block,
+void fill_block_xor(__global const struct block *restrict ref_block,
+                    __local struct block *restrict prev_block,
+                    __local struct block *restrict next_block,
                     size_t thread)
 {
     for (size_t i = 0; i < QWORDS_PER_THREAD; i++) {
@@ -170,8 +165,8 @@ void fill_block_xor(__global const struct block *ref_block,
 
 #if ARGON2_TYPE == ARGON2_I
 void next_addresses(ulong thread_input,
-                    __local struct block *addr,
-                    __local struct block *tmp,
+                    __local struct block *restrict addr,
+                    __local struct block *restrict tmp,
                     size_t thread)
 {
     addr->data[thread] = thread_input;
@@ -237,10 +232,10 @@ __kernel void argon2_kernel(
     /* select lane's shared memory buffer: */
     shared += lane * SHARED_BLOCKS;
 
-    __local struct block *curr = &shared[0];
-    __local struct block *prev = &shared[1];
+    __local struct block *restrict curr = &shared[0];
+    __local struct block *restrict prev = &shared[1];
 #if ARGON2_TYPE == ARGON2_I
-    __local struct block *addr = &shared[2];
+    __local struct block *restrict addr = &shared[2];
 
     ulong thread_input;
     switch (thread) {
@@ -297,12 +292,6 @@ __kernel void argon2_kernel(
 #else
             pseudo_rand = prev->data[0];
 #endif
-            /*
-            if (thread == 0) {
-                printf("[l %u; p %u; i %03u] pseudo_rand: %08x\n",
-                       (uint)lane, pass, (uint)index, (uint)pseudo_rand);
-            }
-            */
 
             uint ref_lane = (uint)(pseudo_rand >> 32) % lanes;
 
