@@ -24,7 +24,17 @@ target_include_directories(argon2-opencl PRIVATE include/argon2-opencl lib/argon
 target_link_libraries(argon2-opencl -lOpenCL)
 
 add_executable(argon2-opencl-test src/argon2-opencl-test/main.cpp)
+target_include_directories(argon2-opencl-test PRIVATE src/argon2-opencl-test)
 target_link_libraries(argon2-opencl-test
+    argon2-opencl -lOpenCL
+)
+
+add_executable(argon2-opencl-bench
+    src/argon2-opencl-bench/benchmark.cpp
+    src/argon2-opencl-bench/main.cpp
+)
+target_include_directories(argon2-opencl-bench PRIVATE src/argon2-opencl-bench)
+target_link_libraries(argon2-opencl-bench
     argon2-opencl -lOpenCL
 )
 
@@ -42,4 +52,4 @@ install(FILES
     include/argon2-opencl/processingunit.h
     DESTINATION ${INCLUDE_INSTALL_DIR}
 )
-#install(TARGETS argon2-opencl-test DESTINATION ${BINARY_INSTALL_DIR})
+install(TARGETS argon2-opencl-bench argon2-opencl-test DESTINATION ${BINARY_INSTALL_DIR})
