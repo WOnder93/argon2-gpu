@@ -121,8 +121,6 @@ void shuffle_block(__local struct block_l *block, size_t thread)
     uint4 index0 = 4 * u0123 + hash_lane;
     uint4 index1 = 4 * u0123 + (u0123 + hash_lane) % 4;
 
-    __local ulong *v_lo, *v_hi;
-
     g(block->lo + 16 * subblock, block->hi + 16 * subblock, index0);
 
     barrier(CLK_LOCAL_MEM_FENCE);
