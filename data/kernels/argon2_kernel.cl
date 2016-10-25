@@ -74,13 +74,36 @@ typedef ptrdiff_t intptr_t;
 
 #define rotr64(x, n) rotate(x, (ulong)(64 - (n)))
 
-void g(__local uint *v_lo, __local uint *v_hi, uint4 i)
+struct block_g {
+    ulong data[ARGON2_QWORDS_IN_BLOCK];
+};
+
+struct block_l {
+    uint lo[ARGON2_QWORDS_IN_BLOCK];
+    uint hi[ARGON2_QWORDS_IN_BLOCK];
+};
+
+void g(__local struct block_l *block, size_t subblock, size_t hash_lane,
+       size_t bw, size_t bh, size_t dx, size_t dy, size_t offset)
 {
+    size_t index[4];
+    for (size_t i = 0; i < 4; i++) {
+        size_t bpos = (hash_lane + i * offset) % 4;
+        size_t x = (subblock * dy + i * dx) * bw + bpos % bw;
+        size_t y = (subblock * dx + i * dy) * bh + bpos / bw;
+
+        index[i] = y * 16 + (x + (y / 2) * 4) % 16;
+
+        if (i == 1) {
+            //printf("[%i, %i] x: %2i, y: %2i\n", (uint)subblock, (uint)hash_lane, (uint)x, (uint)y);
+        }
+    }
+
     ulong a, b, c, d;
-    a = upsample(v_hi[i.s0], v_lo[i.s0]);
-    b = upsample(v_hi[i.s1], v_lo[i.s1]);
-    c = upsample(v_hi[i.s2], v_lo[i.s2]);
-    d = upsample(v_hi[i.s3], v_lo[i.s3]);
+    a = upsample(block->hi[index[0]], block->lo[index[0]]);
+    b = upsample(block->hi[index[1]], block->lo[index[1]]);
+    c = upsample(block->hi[index[2]], block->lo[index[2]]);
+    d = upsample(block->hi[index[3]], block->lo[index[3]]);
 
     a = F(a, b);
     d = rotr64(d ^ a, 32);
@@ -91,52 +114,37 @@ void g(__local uint *v_lo, __local uint *v_hi, uint4 i)
     c = F(c, d);
     b = rotr64(b ^ c, 63);
 
-    v_lo[i.s0] = (uint)a;
-    v_lo[i.s1] = (uint)b;
-    v_lo[i.s2] = (uint)c;
-    v_lo[i.s3] = (uint)d;
+    block->lo[index[0]] = (uint)a;
+    block->lo[index[1]] = (uint)b;
+    block->lo[index[2]] = (uint)c;
+    block->lo[index[3]] = (uint)d;
 
-    v_hi[i.s0] = (uint)(a >> 32);
-    v_hi[i.s1] = (uint)(b >> 32);
-    v_hi[i.s2] = (uint)(c >> 32);
-    v_hi[i.s3] = (uint)(d >> 32);
+    block->hi[index[0]] = (uint)(a >> 32);
+    block->hi[index[1]] = (uint)(b >> 32);
+    block->hi[index[2]] = (uint)(c >> 32);
+    block->hi[index[3]] = (uint)(d >> 32);
 }
-
-struct block_g {
-    ulong data[ARGON2_QWORDS_IN_BLOCK];
-};
-
-struct block_l {
-    uint lo[ARGON2_QWORDS_IN_BLOCK];
-    uint hi[ARGON2_QWORDS_IN_BLOCK];
-};
 
 void shuffle_block(__local struct block_l *block, size_t thread)
 {
     /* |  x   x   x  |   x   x   | */
     /* |  subblock   | hash_lane | */
-    size_t subblock = (thread >> 2) & 0x7U;
-    uint hash_lane = (thread >> 0) & 0x3U;
-    uint4 u0123 = (uint4)(0U, 1U, 2U, 3U);
-    uint4 index0 = 4 * u0123 + hash_lane;
-    uint4 index1 = 4 * u0123 + (u0123 + hash_lane) % 4;
+    size_t subblock = (thread >> 2) & 0x7;
+    size_t hash_lane = (thread >> 0) & 0x3;
 
-    g(block->lo + 16 * subblock, block->hi + 16 * subblock, index0);
+    g(block, subblock, hash_lane, 4, 1, 1, 0, 0);
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    g(block->lo + 16 * subblock, block->hi + 16 * subblock, index1);
+    g(block, subblock, hash_lane, 4, 1, 1, 0, 1);
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    index0 = 16 * (index0 / 2) + index0 % 2;
-    index1 = 16 * (index1 / 2) + index1 % 2;
-
-    g(block->lo + 2 * subblock, block->hi + 2 * subblock, index0);
+    g(block, subblock, hash_lane, 2, 2, 0, 1, 0);
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    g(block->lo + 2 * subblock, block->hi + 2 * subblock, index1);
+    g(block, subblock, hash_lane, 2, 2, 0, 1, 1);
 }
 
 void fill_block(__global const struct block_g *restrict ref_block,
@@ -145,10 +153,11 @@ void fill_block(__global const struct block_g *restrict ref_block,
                 size_t thread)
 {
     for (size_t i = 0; i < QWORDS_PER_THREAD; i++) {
-        size_t pos = i * THREADS_PER_LANE + thread;
-        ulong in = ref_block->data[pos];
-        next_block->lo[pos] = prev_block->lo[pos] ^= (uint)in;
-        next_block->hi[pos] = prev_block->hi[pos] ^= (uint)(in >> 32);
+        size_t pos_l = i * THREADS_PER_LANE +
+                (thread & 0x10) + ((thread + i * 4) & 0xf);
+        ulong in = ref_block->data[i * THREADS_PER_LANE + thread];
+        next_block->lo[pos_l] = prev_block->lo[pos_l] ^= (uint)in;
+        next_block->hi[pos_l] = prev_block->hi[pos_l] ^= (uint)(in >> 32);
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -171,10 +180,11 @@ void fill_block_xor(__global const struct block_g *restrict ref_block,
                     size_t thread)
 {
     for (size_t i = 0; i < QWORDS_PER_THREAD; i++) {
-        size_t pos = i * THREADS_PER_LANE + thread;
-        ulong in = ref_block->data[pos];
-        next_block->lo[pos] ^= prev_block->lo[pos] ^= (uint)in;
-        next_block->hi[pos] ^= prev_block->hi[pos] ^= (uint)(in >> 32);
+        size_t pos_l = i * THREADS_PER_LANE +
+                (thread & 0x10) + ((thread + i * 4) & 0xf);
+        ulong in = ref_block->data[i * THREADS_PER_LANE + thread];
+        next_block->lo[pos_l] ^= prev_block->lo[pos_l] ^= (uint)in;
+        next_block->hi[pos_l] ^= prev_block->hi[pos_l] ^= (uint)(in >> 32);
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -303,10 +313,11 @@ __kernel void argon2_kernel(
     __global struct block_g *mem_curr = mem_lane + 2;
 
     for (size_t i = 0; i < QWORDS_PER_THREAD; i++) {
-        size_t pos = i * THREADS_PER_LANE + thread;
-        ulong in = mem_prev->data[pos];
-        prev->lo[pos] = (uint)in;
-        prev->hi[pos] = (uint)(in >> 32);
+        size_t pos_l = (thread & 0x10) + ((thread + i * 4) & 0xf);
+        ulong in = mem_prev->data[i * THREADS_PER_LANE + thread];
+        //printf("[%2i, %i] pos_l: %3i\n", (uint)thread, (uint)i, (uint)pos_l);
+        prev->lo[i * THREADS_PER_LANE + pos_l] = (uint)in;
+        prev->hi[i * THREADS_PER_LANE + pos_l] = (uint)(in >> 32);
     }
     for (uint pass = 0; pass < passes; ++pass) {
         for (size_t index = pass == 0 ? 2 : 0; index < lane_blocks; ++index) {
@@ -322,6 +333,10 @@ __kernel void argon2_kernel(
                 }
                 next_addresses(thread_input, addr, curr, thread);
             }
+            size_t addr_index_x = addr_index % 16;
+            size_t addr_index_y = addr_index / 16;
+            addr_index = addr_index_y * 16 +
+                    (addr_index_x + (addr_index_y / 2) * 4) % 16;
             pseudo_rand_lo = addr->lo[addr_index];
             pseudo_rand_hi = addr->hi[addr_index];
 #else
@@ -367,10 +382,10 @@ __kernel void argon2_kernel(
 #else
             if (pass != 0) {
                 for (size_t i = 0; i < QWORDS_PER_THREAD; i++) {
-                    size_t pos = i * THREADS_PER_LANE + thread;
-                    ulong in = mem_curr->data[pos];
-                    curr->lo[pos] = (uint)in;
-                    curr->hi[pos] = (uint)(in >> 32);
+                    size_t pos_l = (thread & 0x10) + ((thread + i * 4) & 0xf);
+                    ulong in = mem_curr->data[i * THREADS_PER_LANE + thread];
+                    curr->lo[i * THREADS_PER_LANE + pos_l] = (uint)in;
+                    curr->hi[i * THREADS_PER_LANE + pos_l] = (uint)(in >> 32);
                 }
 
                 fill_block_xor(mem_ref, prev, curr, thread);
@@ -380,8 +395,10 @@ __kernel void argon2_kernel(
 #endif
 
             for (size_t i = 0; i < QWORDS_PER_THREAD; i++) {
-                size_t pos = i * THREADS_PER_LANE + thread;
-                mem_curr->data[pos] = upsample(curr->hi[pos], curr->lo[pos]);
+                size_t pos_l = (thread & 0x10) + ((thread + i * 4) & 0xf);
+                ulong out = upsample(curr->hi[i * THREADS_PER_LANE + pos_l],
+                                     curr->lo[i * THREADS_PER_LANE + pos_l]);
+                mem_curr->data[i * THREADS_PER_LANE + thread] = out;
             }
 
             /* swap curr and prev buffers: */
