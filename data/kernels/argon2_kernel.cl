@@ -408,22 +408,26 @@ __kernel void argon2_kernel(
 
             if ((index + 1) % segment_blocks == 0) {
                 barrier(CLK_GLOBAL_MEM_FENCE);
+#if ARGON2_TYPE == ARGON2_I
                 if (thread == 2) {
                     ++thread_input;
                 }
                 if (thread == 6) {
                     thread_input = 0UL;
                 }
+#endif
             }
 
             ++mem_curr;
         }
+#if ARGON2_TYPE == ARGON2_I
         if (thread == 0) {
             ++thread_input;
         }
         if (thread == 2) {
             thread_input = 0UL;
         }
+#endif
         mem_curr = mem_lane;
     }
 }

@@ -176,6 +176,28 @@ const TestCase CASES_I_13[] = {
     },
 };
 
+const TestCase CASES_D_13[] = {
+    {
+        {
+            32,
+            "\x02\x02\x02\x02\x02\x02\x02\x02"
+            "\x02\x02\x02\x02\x02\x02\x02\x02", 16,
+            "\x03\x03\x03\x03\x03\x03\x03\x03", 8,
+            "\x04\x04\x04\x04\x04\x04\x04\x04"
+            "\x04\x04\x04\x04", 12,
+            3, 32, 4
+        },
+        "\x51\x2b\x39\x1b\x6f\x11\x62\x97"
+        "\x53\x71\xd3\x09\x19\x73\x42\x94"
+        "\xf8\x68\xe3\xbe\x39\x84\xf3\xc1"
+        "\xa1\x3a\x4d\xb9\xfa\xbe\x4a\xcb",
+        "\x01\x01\x01\x01\x01\x01\x01\x01"
+        "\x01\x01\x01\x01\x01\x01\x01\x01"
+        "\x01\x01\x01\x01\x01\x01\x01\x01"
+        "\x01\x01\x01\x01\x01\x01\x01\x01", 32
+    },
+};
+
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define ARRAY_BEGIN(a) (a)
 #define ARRAY_END(a) ((a) + ARRAY_SIZE(a))
@@ -191,6 +213,8 @@ int main(void) {
                              ARRAY_BEGIN(CASES_I_10), ARRAY_END(CASES_I_10));
         failures += runTests(global, device, ARGON2_I, ARGON2_VERSION_13,
                              ARRAY_BEGIN(CASES_I_13), ARRAY_END(CASES_I_13));
+        failures += runTests(global, device, ARGON2_D, ARGON2_VERSION_13,
+                             ARRAY_BEGIN(CASES_D_13), ARRAY_END(CASES_D_13));
     } catch (cl::Error &err) {
         std::cerr << "OpenCL ERROR: " << err.err() << ": "
                   << err.what() << std::endl;
