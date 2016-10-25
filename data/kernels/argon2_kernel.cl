@@ -93,10 +93,6 @@ void g(__local struct block_l *block, size_t subblock, size_t hash_lane,
         size_t y = (subblock * dx + i * dy) * bh + bpos / bw;
 
         index[i] = y * 16 + (x + (y / 2) * 4) % 16;
-
-        if (i == 1) {
-            //printf("[%i, %i] x: %2i, y: %2i\n", (uint)subblock, (uint)hash_lane, (uint)x, (uint)y);
-        }
     }
 
     ulong a, b, c, d;
@@ -315,7 +311,6 @@ __kernel void argon2_kernel(
     for (size_t i = 0; i < QWORDS_PER_THREAD; i++) {
         size_t pos_l = (thread & 0x10) + ((thread + i * 4) & 0xf);
         ulong in = mem_prev->data[i * THREADS_PER_LANE + thread];
-        //printf("[%2i, %i] pos_l: %3i\n", (uint)thread, (uint)i, (uint)pos_l);
         prev->lo[i * THREADS_PER_LANE + pos_l] = (uint)in;
         prev->hi[i * THREADS_PER_LANE + pos_l] = (uint)(in >> 32);
     }
