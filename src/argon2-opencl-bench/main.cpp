@@ -70,7 +70,7 @@ static CommandLineParser<Arguments> buildCmdLineParser()
             }), "m-cost", 'M', "memory cost", "1024", "N"),
         new ArgumentOption<Arguments>(
             makeNumericHandler<Arguments, std::size_t>([] (Arguments &state, std::size_t num) {
-                state.m_cost = (std::size_t)num;
+                state.lanes = (std::size_t)num;
             }), "lanes", 'L', "number of lanes", "1", "N"),
         new ArgumentOption<Arguments>(
             makeNumericHandler<Arguments, std::size_t>([] (Arguments &state, std::size_t num) {
