@@ -235,10 +235,10 @@ __kernel void argon2_kernel(
         uint passes, uint lanes, uint segment_blocks)
 {
     size_t job_id = get_global_id(0);
-    size_t lane = get_global_id(1);
+    uint lane = get_global_id(1);
     uint thread = (uint)get_global_id(2);
 
-    size_t lane_blocks = ARGON2_SYNC_POINTS * segment_blocks;
+    uint lane_blocks = ARGON2_SYNC_POINTS * segment_blocks;
 
     /* select job's memory region: */
     memory += job_id * lanes * lane_blocks;
@@ -256,7 +256,7 @@ __kernel void argon2_kernel(
         thread_input = lane;
         break;
     case 3:
-        thread_input = lanes * (uint)lane_blocks;
+        thread_input = lanes * lane_blocks;
         break;
     case 4:
         thread_input = passes;
