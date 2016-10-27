@@ -49,22 +49,6 @@ typedef ptrdiff_t intptr_t;
 #define ARGON2_TYPE ARGON2_I
 #endif
 
-/*
- * BLAMKA ROUND:
- *  G is sequential (atomic)
- *  4 G's in parallel (2 passes)
- *
- * FILL BLOCK:
- *  1. some moving and xoring...
- *  2. 8 x BLAMKA ROUND in parallel
- *  3. 8 x BLAMKA ROUND in parallel (on diff. distributed data)
- *  4. some moving and xoring again...
- *
- * Conclusion:
- *  BLAMKA ROUND == 4 threads
- *  FILL BLOCK == 32 threads
- */
-
 #define MASK_32 0xFFFFFFFFUL
 
 #define F(x, y) ((x) + (y) + 2 * upsample( \
@@ -123,8 +107,6 @@ void g(__local struct block_l *block, size_t subblock, size_t hash_lane,
 
 void shuffle_block(__local struct block_l *block, size_t thread)
 {
-    /* |  x   x   x  |   x   x   | */
-    /* |  subblock   | hash_lane | */
     size_t subblock = (thread >> 2) & 0x7;
     size_t hash_lane = (thread >> 0) & 0x3;
 
@@ -240,21 +222,12 @@ void next_addresses(uint thread_input,
 }
 #endif
 
-/* 1 fill_segment call == throughput of 1 fill_block call */
-/* 1 fill_block call == 64 threads */
-/* CONCLUSION: we need 64 threads per fill_segment (i. e. per lane) */
-
 #if ARGON2_TYPE == ARGON2_I
 #define SHARED_BLOCKS 3
 #else
 #define SHARED_BLOCKS 2
 #endif
-/*
- * how to map thread ids to position/sub-tasks?
- *
- * GLOBAL ID == (job, lane, thread)
- * GROUP SIZE == (1, lanes, 32)
- */
+
 __kernel void argon2_kernel(
         __global struct block_g *memory, __local struct block_l *shared,
         uint passes, uint lanes, uint segment_blocks)
