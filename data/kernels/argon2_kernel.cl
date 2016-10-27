@@ -145,9 +145,10 @@ void fill_block(__global const struct block_g *restrict ref_block,
     barrier(CLK_LOCAL_MEM_FENCE);
 
     for (uint i = 0; i < QWORDS_PER_THREAD; i++) {
-        uint pos = i * THREADS_PER_LANE + thread;
-        next_block->lo[pos] ^= prev_block->lo[pos];
-        next_block->hi[pos] ^= prev_block->hi[pos];
+        uint pos_l = i * THREADS_PER_LANE +
+                (thread & 0x10) + ((thread + i * 4) & 0xf);
+        next_block->lo[pos_l] ^= prev_block->lo[pos_l];
+        next_block->hi[pos_l] ^= prev_block->hi[pos_l];
     }
 }
 
@@ -172,9 +173,10 @@ void fill_block_xor(__global const struct block_g *restrict ref_block,
     barrier(CLK_LOCAL_MEM_FENCE);
 
     for (uint i = 0; i < QWORDS_PER_THREAD; i++) {
-        uint pos = i * THREADS_PER_LANE + thread;
-        next_block->lo[pos] ^= prev_block->lo[pos];
-        next_block->hi[pos] ^= prev_block->hi[pos];
+        uint pos_l = i * THREADS_PER_LANE +
+                (thread & 0x10) + ((thread + i * 4) & 0xf);
+        next_block->lo[pos_l] ^= prev_block->lo[pos_l];
+        next_block->hi[pos_l] ^= prev_block->hi[pos_l];
     }
 }
 #endif
