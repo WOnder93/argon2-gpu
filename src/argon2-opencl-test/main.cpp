@@ -76,29 +76,31 @@ std::size_t runTests(const GlobalContext &global, const Device &device,
 
     std::size_t failures = 0;
     ProgramContext progCtx(&global, { device }, type, version);
-    for (auto tc = casesFrom; tc < casesTo; ++tc) {
-        std::cerr << "  ";
-        tc->dump(std::cerr);
-        std::cerr << "... ";
+    for (auto bySegment : {true, false}) {
+        for (auto tc = casesFrom; tc < casesTo; ++tc) {
+            std::cerr << "  " << (bySegment ? "[by-segment] " : "[oneshot] ");
+            tc->dump(std::cerr);
+            std::cerr << "... ";
 
-        auto &params = tc->getParams();
-        ProcessingUnit pu(&progCtx, &params, &device, 1);
+            auto &params = tc->getParams();
+            ProcessingUnit pu(&progCtx, &params, &device, 1, bySegment);
 
-        {
-            ProcessingUnit::PasswordWriter writer(pu);
-            writer.setPassword(tc->getInput(), tc->getInputLength());
-        }
-        pu.beginProcessing();
-        pu.endProcessing();
+            {
+                ProcessingUnit::PasswordWriter writer(pu);
+                writer.setPassword(tc->getInput(), tc->getInputLength());
+            }
+            pu.beginProcessing();
+            pu.endProcessing();
 
-        ProcessingUnit::HashReader hash(pu);
-        bool res = std::memcmp(tc->getOutput(), hash.getHash(),
-                               params.getOutputLength()) == 0;
-        if (!res) {
-            ++failures;
-            std::cerr << "FAIL" << std::endl;
-        } else {
-            std::cerr << "PASS" << std::endl;
+            ProcessingUnit::HashReader hash(pu);
+            bool res = std::memcmp(tc->getOutput(), hash.getHash(),
+                                   params.getOutputLength()) == 0;
+            if (!res) {
+                ++failures;
+                std::cerr << "FAIL" << std::endl;
+            } else {
+                std::cerr << "PASS" << std::endl;
+            }
         }
     }
     if (!failures) {

@@ -8,20 +8,14 @@ namespace opencl {
 
 ProcessingUnit::ProcessingUnit(
         const ProgramContext *programContext, const Argon2Params *params,
-        const Device *device, std::size_t batchSize)
+        const Device *device, std::size_t batchSize,
+        bool bySegment)
     : programContext(programContext), params(params),
-      device(device), batchSize(batchSize)
+      device(device), batchSize(batchSize), bySegment(bySegment)
 {
     // FIXME: check memSize out of bounds
     auto &clContext = programContext->getContext();
     auto lanes = params->getLanes();
-    auto localMemSize = (std::size_t)lanes * ARGON2_BLOCK_SIZE;
-    if (programContext->getArgon2Type() == ARGON2_I) {
-        localMemSize *= 3;
-    } else {
-        localMemSize *= 2;
-    }
-
     cmdQueue = cl::CommandQueue(clContext, device->getCLDevice());
 
     memorySize = params->getMemorySize() * batchSize;
@@ -31,12 +25,29 @@ ProcessingUnit::ProcessingUnit(
     mappedMemoryBuffer = cmdQueue.enqueueMapBuffer(
                 memoryBuffer, true, CL_MAP_WRITE, 0, memorySize);
 
-    kernel = cl::Kernel(programContext->getProgram(), "argon2_kernel");
-    kernel.setArg<cl::Buffer>(0, memoryBuffer);
-    kernel.setArg<cl::LocalSpaceArg>(1, { localMemSize });
-    kernel.setArg<cl_uint>(2, params->getTimeCost());
-    kernel.setArg<cl_uint>(3, lanes);
-    kernel.setArg<cl_uint>(4, params->getSegmentBlocks());
+    if (bySegment) {
+        kernel = cl::Kernel(programContext->getProgram(),
+                            "argon2_kernel_segment");
+        kernel.setArg<cl::Buffer>(0, memoryBuffer);
+        kernel.setArg<cl_uint>(1, params->getTimeCost());
+        kernel.setArg<cl_uint>(2, lanes);
+        kernel.setArg<cl_uint>(3, params->getSegmentBlocks());
+    } else {
+        auto localMemSize = (std::size_t)lanes * ARGON2_BLOCK_SIZE;
+        if (programContext->getArgon2Type() == ARGON2_I) {
+            localMemSize *= 3;
+        } else {
+            localMemSize *= 2;
+        }
+
+        kernel = cl::Kernel(programContext->getProgram(),
+                            "argon2_kernel_oneshot");
+        kernel.setArg<cl::Buffer>(0, memoryBuffer);
+        kernel.setArg<cl::LocalSpaceArg>(1, { localMemSize });
+        kernel.setArg<cl_uint>(2, params->getTimeCost());
+        kernel.setArg<cl_uint>(3, lanes);
+        kernel.setArg<cl_uint>(4, params->getSegmentBlocks());
+    }
 }
 
 ProcessingUnit::PasswordWriter::PasswordWriter(
@@ -94,10 +105,25 @@ void ProcessingUnit::beginProcessing()
 {
     cmdQueue.enqueueUnmapMemObject(memoryBuffer, mappedMemoryBuffer);
 
-    cmdQueue.enqueueNDRangeKernel(
-                kernel, cl::NullRange,
-                cl::NDRange(batchSize, params->getLanes(), THREADS_PER_LANE),
-                cl::NDRange(1, params->getLanes(), THREADS_PER_LANE));
+    if (bySegment) {
+        for (cl_uint pass = 0; pass < params->getTimeCost(); pass++) {
+            kernel.setArg<cl_uint>(4, pass);
+            for (cl_uint slice = 0; slice < ARGON2_SYNC_POINTS; slice++) {
+                kernel.setArg<cl_uint>(5, slice);
+                cmdQueue.enqueueNDRangeKernel(
+                            kernel, cl::NullRange,
+                            cl::NDRange(batchSize, params->getLanes(),
+                                        THREADS_PER_LANE),
+                            cl::NDRange(1, 1, THREADS_PER_LANE));
+            }
+        }
+    } else {
+        cmdQueue.enqueueNDRangeKernel(
+                    kernel, cl::NullRange,
+                    cl::NDRange(batchSize, params->getLanes(),
+                                THREADS_PER_LANE),
+                    cl::NDRange(1, params->getLanes(), THREADS_PER_LANE));
+    }
 
     mappedMemoryBuffer = cmdQueue.enqueueMapBuffer(
                 memoryBuffer, false, CL_MAP_READ | CL_MAP_WRITE,

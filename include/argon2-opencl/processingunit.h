@@ -19,6 +19,8 @@ private:
     std::size_t batchSize;
     std::size_t memorySize;
 
+    bool bySegment;
+
     cl::CommandQueue cmdQueue;
     cl::Buffer memoryBuffer;
     cl::Buffer debugBuffer;
@@ -66,7 +68,8 @@ public:
 
     ProcessingUnit(
             const ProgramContext *programContext, const Argon2Params *params,
-            const Device *device, std::size_t batchSize);
+            const Device *device, std::size_t batchSize,
+            bool bySegment = true);
 
     void beginProcessing();
     void endProcessing();
