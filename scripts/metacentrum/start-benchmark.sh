@@ -80,7 +80,8 @@ if [ "$run_tests" == "yes" ]; then
     ./argon2-opencl-test
 fi
 
-bash scripts/run-benchmark.sh >"$dest_dir/\$PBS_JOBID/benchmark-$machine-$branch.csv"
+bash scripts/run-benchmark.sh "$max_memory" "$batch_size" "$samples" \
+    >"$dest_dir/\$PBS_JOBID/benchmark-$machine-$branch.csv"
 EOF
 
 qsub "$task_file"
