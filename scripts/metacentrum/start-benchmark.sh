@@ -52,7 +52,7 @@ cat >$task_file <<EOF
 #PBS -l nodes=1:ppn=1:cl_$machine
 #PBS -l gpu=1
 #PBS -q $queue
-#PBS -l mem=4gb
+#PBS -l mem=16gb
 
 module add cmake-3.6.1
 
