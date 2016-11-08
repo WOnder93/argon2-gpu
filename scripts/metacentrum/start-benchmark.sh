@@ -6,7 +6,8 @@ batch_size="$3"
 samples="$4"
 branch="$5"
 duration="$6"
-run_tests="$7"
+queue="$7"
+run_tests="$8"
 
 if [ -z "$machine" ]; then
     echo "ERROR: Machine must be specified!" 1>&2
