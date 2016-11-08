@@ -62,7 +62,7 @@ cd "$dest_dir/\$PBS_JOBID" || exit 1
 
 mkdir include || exit 1
 
-https://github.com/KhronosGroup/OpenCL-Headers.git' include/CL || exit 1
+git clone 'https://github.com/KhronosGroup/OpenCL-Headers.git' include/CL || exit 1
 (cd include/CL && git checkout opencl11) || exit 1
 
 export C_INCLUDE_PATH="\$C_INCLUDE_PATH:\$(readlink -f include)"
