@@ -24,10 +24,15 @@ cd "$dirname/.." || exit 1
 echo "version,type,t_cost,m_cost,lanes,ns_per_hash"
 for version in 1.3 1.0; do
     for type in i d; do
-        for (( m_cost = 64; m_cost <= $(( $max_memory / $batch_size )); m_cost *= 4 )); do
+        for (( m_cost = 128; m_cost <= $max_memory; m_cost *= 2 )); do
             for (( t_cost = 1; t_cost <= 16; t_cost *= 2 )); do
-                for (( lanes = 1; lanes <= 8; lanes *= 2 )); do
-                    ns_per_hash=$(./argon2-opencl-bench -b $batch_size -T $t_cost -M $m_cost -L $lanes -o ns-per-hash --output-mode mean -s $samples)
+                for (( lanes = 1; lanes <= 16; lanes *= 2 )); do
+                    if (( $m_cost * $batch_size > $max_memory )); then
+                        bs=$(( $max_memory / $m_cost ))
+                    else
+                        bs=$batch_size
+                    fi
+                    ns_per_hash=$(./argon2-opencl-bench -b $bs -T $t_cost -M $m_cost -L $lanes -o ns-per-hash --output-mode mean -s $samples)
                     
                     echo "v$version,Argon2$type,$t_cost,$m_cost,$lanes,$ns_per_hash"
                 done
