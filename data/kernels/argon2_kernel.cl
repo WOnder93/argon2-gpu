@@ -49,8 +49,6 @@ typedef ptrdiff_t intptr_t;
 #define ARGON2_TYPE ARGON2_I
 #endif
 
-#define MASK_32 0xFFFFFFFFUL
-
 #define F(x, y) ((x) + (y) + 2 * upsample( \
     mul_hi((uint)(x), (uint)(y)), \
     (uint)(x) * (uint)(y) \
